@@ -1,0 +1,43 @@
+# GitHub Actions workflow to build WebDriverAgent IPA
+# 使用方法:
+# 1. Fork https://github.com/appium/WebDriverAgent 到你的 GitHub 账号
+# 2. 把本文件复制到你 fork 的 .github/workflows/build.yml
+# 3. Actions 页 → "Build WDA IPA" → Run workflow
+# 4. 下载 artifact(未签名的 WDA.ipa)
+name: Build WDA IPA
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - name: Clone WebDriverAgent
+        run: git clone https://github.com/appium/WebDriverAgent.git
+
+      - name: Build WebDriverAgent for testing
+        run: |
+          cd WebDriverAgent
+          xcodebuild build-for-testing \
+            -project WebDriverAgent.xcodeproj \
+            -scheme WebDriverAgentRunner \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath ../DerivedData \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Create IPA
+        run: |
+          APP_PATH=$(find ./DerivedData -name "WebDriverAgentRunner-Runner.app" -type d | head -1)
+          echo "App found at: $APP_PATH"
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -r WDA.ipa Payload
+          ls -la WDA.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WDA-unsigned
+          path: WDA.ipa
